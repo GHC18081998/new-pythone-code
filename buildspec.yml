@@ -1,0 +1,47 @@
+version: 0.2
+
+env:
+  parameter-store:
+    DOCKER_REGISTRY_USERNAME: /myapp/docker/username
+    DOCKER_REGISTRY_PASSWORD: /myapp/docker/password
+    DOCKER_REGISTRY_URL: /myapp/docker/registry_url
+
+phases:
+  install:
+    commands:
+      - echo "Starting Docker daemon..."
+      - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 &
+      - timeout 15 sh -c "until docker info; do echo 'Waiting for Docker...'; sleep 1; done"
+      - echo "Docker is ready"
+
+  pre_build:
+    commands:
+      - echo "Installing dependencies..."
+      - pip install -r day-14/simple-python-app/requirements.txt
+      - echo "Logging in to Docker Hub..."
+      - echo "$DOCKER_REGISTRY_PASSWORD" | docker login "$DOCKER_REGISTRY_URL" -u "$DOCKER_REGISTRY_USERNAME" --password-stdin
+      - echo "Login successful"
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c1-7)
+      - IMAGE_REPO=$DOCKER_REGISTRY_USERNAME/simple-python-flask-app
+      - echo "Image repo -- $IMAGE_REPO"
+
+  build:
+    commands:
+      - echo "Building Docker image..."
+      - docker build -t $IMAGE_REPO:latest day-14/simple-python-app/
+      - docker tag $IMAGE_REPO:latest $IMAGE_REPO:$IMAGE_TAG
+      - echo "Build complete"
+
+  post_build:
+    commands:
+      - echo "Pushing image to Docker Hub..."
+      - docker push $IMAGE_REPO:latest
+      - docker push $IMAGE_REPO:$IMAGE_TAG
+      - echo "Pushed $IMAGE_REPO:latest"
+      - echo "Pushed $IMAGE_REPO:$IMAGE_TAG"
+      - echo "Build completed at $(date)"
+
+artifacts:
+  files:
+    - '**/*'
+  base-directory: day-14/simple-python-app
