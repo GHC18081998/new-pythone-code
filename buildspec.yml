@@ -3,22 +3,24 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - echo Logging in to Docker...
-      - DOCKER_REGISTRY=$(aws ssm get-parameter --name "/myapp/docker/registry_url" --query "Parameter.Value" --output text)
-      - DOCKER_USER=$(aws ssm get-parameter --name "/myapp/docker/username" --query "Parameter.Value" --output text)
-      - DOCKER_PASS=$(aws ssm get-parameter --name "/myapp/docker/password" --with-decryption --query "Parameter.Value" --output text)
-      - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin $DOCKER_REGISTRY
+      - "echo Logging in to Docker..."
+      - "DOCKER_REGISTRY=$(aws ssm get-parameter --name '/myapp/docker/registry_url' --query 'Parameter.Value' --output text)"
+      - "DOCKER_USER=$(aws ssm get-parameter --name '/myapp/docker/username' --query 'Parameter.Value' --output text)"
+      - "DOCKER_PASS=$(aws ssm get-parameter --name '/myapp/docker/password' --with-decryption --query 'Parameter.Value' --output text)"
+      # We login to the registry, but we build with a clean tag
+      - "echo \"$DOCKER_PASS\" | docker login -u \"$DOCKER_USER\" --password-stdin"
   build:
     commands:
-      - echo Build started on `date`
-      - echo Building the Docker image...
-      - docker build -t $DOCKER_REGISTRY:latest .
+      - "echo Build started on $(date)"
+      - "echo Building the Docker image..."
+      # This builds the image using the name from SSM
+      - "docker build -t $DOCKER_REGISTRY ."
   post_build:
     commands:
-      - echo Build completed on `date`
-      - echo Pushing the Docker image...
-      - docker push $DOCKER_REGISTRY:latest
+      - "echo Build completed on $(date)"
+      - "echo Pushing the Docker image..."
+      - "docker push $DOCKER_REGISTRY"
 artifacts:
   files:
-    - appspec.yml
-    - scripts/**/*
+    - "appspec.yml"
+    - "scripts/**/*"
